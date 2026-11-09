@@ -241,6 +241,46 @@ public actor IssuanceRequester: IssuanceRequesterType {
             return try response.toDomain()
           }
         }
+      case .w3CJsonLdDataIntegrity(let credential):
+        // IBM: same handling as `.sdJwtVc`; the decrypted body is a `SingleIssuanceSuccessResponse` either way
+        switch issuerMetadata.credentialResponseEncryption {
+        case .notSupported:
+          guard let response = SingleIssuanceSuccessResponse.fromJSONString(string) else {
+            throw ValidationError.todo(reason: "Cannot decode .notRequired response")
+          }
+          return try response.toDomain()
+        case .required, .notRequired:
+          guard let key = credential.credentialEncryptionKey else {
+            throw ValidationError.error(reason: "Invalid private key")
+          }
+          
+          switch credential.requestedCredentialResponseEncryption {
+          case .notRequested:
+            throw ValidationError.error(reason: "Issuer expects response encryption")
+          case .requested(
+            _,
+            _,
+            let responseEncryptionAlg,
+            let responseEncryptionMethod
+          ):
+            
+            guard
+              let keyManagementAlgorithm = KeyManagementAlgorithm(algorithm: responseEncryptionAlg),
+              let contentEncryptionAlgorithm = ContentEncryptionAlgorithm(encryptionMethod: responseEncryptionMethod)
+            else {
+              throw ValidationError.error(reason: "Unsupported encryption algorithms")
+            }
+            
+            let payload = try decrypt(
+              jwtString: string,
+              keyManagementAlgorithm: keyManagementAlgorithm,
+              contentEncryptionAlgorithm: contentEncryptionAlgorithm,
+              privateKey: key
+            )
+            let response = try JSONDecoder().decode(SingleIssuanceSuccessResponse.self, from: payload.data())
+            return try response.toDomain()
+          }
+        }
       }
     }
   }
@@ -653,6 +693,19 @@ private extension SingleIssuanceSuccessResponse {
           .issued(
             format: nil,
             credential: .string(string),
+            notificationId: notificationId,
+            additionalInfo: nil
+          )
+        ]
+      )
+    } else if let credential = credential,
+       credential.type == .dictionary {
+      // IBM: ldp_vc credentials are JSON-LD objects, not strings.
+      return CredentialIssuanceResponse(
+        credentialResponses: [
+          .issued(
+            format: nil,
+            credential: .json(credential),
             notificationId: notificationId,
             additionalInfo: nil
           )

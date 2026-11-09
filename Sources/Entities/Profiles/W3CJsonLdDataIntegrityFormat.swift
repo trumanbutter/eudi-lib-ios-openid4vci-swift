@@ -1,3 +1,7 @@
+// IBM: `ldp_vc` issuance request support. Upstream (0.55.5) parses `ldp_vc` issuer metadata but throws
+// "Not yet implemented" when building the credential request. This file adds `W3CJsonLdDataIntegritySingleCredential`
+// and `CredentialConfiguration.toIssuanceRequest`. Kept to small, rebasable commits (see ibm/ldp-vc-issuance).
+
 /*
  * Copyright (c) 2023 European Commission
  *
@@ -13,7 +17,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import Foundation
+@preconcurrency import Foundation
+@preconcurrency import JOSESwift
 import SwiftyJSON
 
 public struct W3CJsonLdDataIntegrityFormat: FormatProfile {
@@ -246,9 +251,64 @@ public extension W3CJsonLdDataIntegrityFormat {
     }
     
     func toIssuanceRequest(
+      responseEncryptionSpec: IssuanceResponseEncryptionSpec?,
+      requestPayload: IssuanceRequestPayload,
       proofs: [Proof]
     ) throws -> CredentialIssuanceRequest {
-      throw ValidationError.error(reason: "Not yet implemented")
+      try .single(
+        .w3CJsonLdDataIntegrity(
+          .init(
+            scope: scope,
+            proofs: proofs,
+            credentialEncryptionJwk: responseEncryptionSpec?.jwk,
+            credentialEncryptionKey: responseEncryptionSpec?.privateKey,
+            credentialResponseEncryptionAlg: responseEncryptionSpec?.algorithm,
+            credentialResponseEncryptionMethod: responseEncryptionSpec?.encryptionMethod,
+            requestPayload: requestPayload
+          )
+        ), responseEncryptionSpec
+      )
+    }
+  }
+  
+  /// The request for one `ldp_vc` credential. Like `SdJwtVcSingleCredential` it carries the request payload
+  /// (credential configuration id or credential identifier), the optional `proofs` and the response encryption
+  /// choice. It carries no `credential_definition`, since a request by configuration id or credential identifier
+  /// does not send one. `proofs` is empty when the issuer advertises no holder binding.
+  struct W3CJsonLdDataIntegritySingleCredential: Sendable {
+    public let scope: String?
+    public let proofs: [Proof]
+    public let format: String = W3CJsonLdDataIntegrityFormat.FORMAT
+    public let credentialEncryptionJwk: JWK?
+    public let credentialEncryptionKey: SecKey?
+    public let credentialResponseEncryptionAlg: JWEAlgorithm?
+    public let credentialResponseEncryptionMethod: JOSEEncryptionMethod?
+    public let requestedCredentialResponseEncryption: RequestedCredentialResponseEncryption
+    public let requestPayload: IssuanceRequestPayload
+    
+    public init(
+      scope: String?,
+      proofs: [Proof],
+      credentialEncryptionJwk: JWK? = nil,
+      credentialEncryptionKey: SecKey? = nil,
+      credentialResponseEncryptionAlg: JWEAlgorithm? = nil,
+      credentialResponseEncryptionMethod: JOSEEncryptionMethod? = nil,
+      requestPayload: IssuanceRequestPayload
+    ) throws {
+      self.scope = scope
+      self.proofs = proofs
+      self.credentialEncryptionJwk = credentialEncryptionJwk
+      self.credentialEncryptionKey = credentialEncryptionKey
+      self.credentialResponseEncryptionAlg = credentialResponseEncryptionAlg
+      self.credentialResponseEncryptionMethod = credentialResponseEncryptionMethod
+      self.requestPayload = requestPayload
+      
+      self.requestedCredentialResponseEncryption = try .init(
+        encryptionJwk: credentialEncryptionJwk,
+        encryptionKey: credentialEncryptionKey,
+        responseEncryptionAlg: credentialResponseEncryptionAlg,
+        responseEncryptionMethod: credentialResponseEncryptionMethod
+      )
     }
   }
   

@@ -92,6 +92,13 @@ public extension CredentialSupported {
         requestPayload: issuancePayload,
         proofs: proofs
       )
+
+    case .w3CJsonLdDataIntegrity(let credentialConfiguration):
+      return try credentialConfiguration.toIssuanceRequest(
+        responseEncryptionSpec: issuerEncryption.notSupported ? nil : responseEncryptionSpec,
+        requestPayload: issuancePayload,
+        proofs: proofs
+      )
     default:
       throw ValidationError.error(
         reason: "Unsupported profile for issuance request"
