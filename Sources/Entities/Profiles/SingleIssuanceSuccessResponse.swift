@@ -99,6 +99,19 @@ public extension SingleIssuanceSuccessResponse {
           )
         ]
       )
+    } else if let credential = credential,
+              credential.type == .dictionary {
+      // IBM: ldp_vc credentials are JSON-LD objects, not strings.
+      return .init(
+        credentialResponses: [
+          .issued(
+            format: nil,
+            credential: .json(credential),
+            notificationId: notificationId,
+            additionalInfo: nil
+          )
+        ]
+      )
     } else if let credentials = credentials,
               !credentials.isEmpty {
       return .init(
