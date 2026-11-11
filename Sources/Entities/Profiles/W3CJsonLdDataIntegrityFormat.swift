@@ -258,7 +258,6 @@ public extension W3CJsonLdDataIntegrityFormat {
       try .single(
         .w3CJsonLdDataIntegrity(
           .init(
-            scope: scope,
             proofs: proofs,
             credentialEncryptionJwk: responseEncryptionSpec?.jwk,
             credentialEncryptionKey: responseEncryptionSpec?.privateKey,
@@ -276,9 +275,7 @@ public extension W3CJsonLdDataIntegrityFormat {
   /// choice. It carries no `credential_definition`, since a request by configuration id or credential identifier
   /// does not send one. `proofs` is empty when the issuer advertises no holder binding.
   struct W3CJsonLdDataIntegritySingleCredential: Sendable {
-    public let scope: String?
     public let proofs: [Proof]
-    public let format: String = W3CJsonLdDataIntegrityFormat.FORMAT
     public let credentialEncryptionJwk: JWK?
     public let credentialEncryptionKey: SecKey?
     public let credentialResponseEncryptionAlg: JWEAlgorithm?
@@ -287,7 +284,6 @@ public extension W3CJsonLdDataIntegrityFormat {
     public let requestPayload: IssuanceRequestPayload
     
     public init(
-      scope: String?,
       proofs: [Proof],
       credentialEncryptionJwk: JWK? = nil,
       credentialEncryptionKey: SecKey? = nil,
@@ -295,7 +291,6 @@ public extension W3CJsonLdDataIntegrityFormat {
       credentialResponseEncryptionMethod: JOSEEncryptionMethod? = nil,
       requestPayload: IssuanceRequestPayload
     ) throws {
-      self.scope = scope
       self.proofs = proofs
       self.credentialEncryptionJwk = credentialEncryptionJwk
       self.credentialEncryptionKey = credentialEncryptionKey
